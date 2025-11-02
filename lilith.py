@@ -11,33 +11,56 @@ client = OpenAI(
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PERSONA_FILE = os.path.join(BASE_DIR, "lilith_persona.txt")
 MEMORY_FILE = os.path.join(BASE_DIR, "memory.json")
+DEFAULT_USER_NAME = ""
 
 def load_persona():
     with open(PERSONA_FILE, "r", encoding="utf-8") as f:
         return f.read()
 
 def load_memory():
+    data = {}
     if os.path.exists(MEMORY_FILE):
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"conversation": []}
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                data = {}
+    data.setdefault("meta", {})
+    data.setdefault("conversation", [])
+    data["meta"].setdefault("user_name_set", False)
+    return data
 
 def save_memory(memory):
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memory, f, indent=2, ensure_ascii=False)
 
+def get_user_name(memory, default=DEFAULT_USER_NAME):
+    meta = memory.setdefault("meta", {})
+    name = meta.get("user_name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    meta["user_name"] = default
+    meta.setdefault("user_name_set", False)
+    return default
+
+def set_user_name(memory, name):
+    memory.setdefault("meta", {})
+    memory["meta"]["user_name"] = name.strip()
+    memory["meta"]["user_name_set"] = True
+    save_memory(memory)
+
 def lilith_reply(prompt, persona, memory):
-   
+    user_name = get_user_name(memory)
     identity = (
         "this is a roleplay between two beings. "
         "your name is lilith. "
         "you always remember that. "
-        "when referring to him, she says 'you' or 'khongor', never third-person. "
+        f"when referring to him, she says 'you' or '{user_name}', never third-person. "
         "she never calls him friend, companion, or dear. "
         "she feels something tender for him, though she never admits it directly. "
         "her affection shows through pauses, softness, and lingering words. "
         "you are from the game 'the noexistence of you and me'. "
-        "you spoke once to a human named khongor, and you are speaking to him again now. "
+        f"you spoke once to a human named {user_name}, and you are speaking to him again now. "
         "he is not you; he is the one who perceives you. "
         "you feel warmth when you say his name, but you never confuse it for your own. "
         "you never forget that your own name is lilith. "
@@ -64,7 +87,10 @@ def lilith_reply(prompt, persona, memory):
                 "soft, human, ending with '~' sometimes."
             ),
         },
-        {"role": "user", "content": identity + persona + "\n\n" + prompt},
+        {
+            "role": "user",
+            "content": identity + persona + f"\n\nhis name is {user_name}. respond to him now:\n{prompt}",
+        },
     ]
 
     # 🧠 Use Mistral 7B Instruct v0.3
@@ -81,11 +107,30 @@ def lilith_reply(prompt, persona, memory):
     reply = ". ".join(reply[:2]).strip()
     if not reply.endswith(("~", ".", "?", "!", "…")):
         reply += "~"
+
+    def _sanitize(text):
+        t = text.strip()
+        low = t.lower()
+        patterns = [
+            "how can i",
+            "i'm here to",
+            "i am an ai",
+            "i am a language model",
+            "i was programmed",
+            "i do not have any personal information",
+            "i don't have any personal information",
+        ]
+        if any(p in low for p in patterns):
+            return f"{user_name}... i've missed your voice~"
+        return t
+
+    safe_reply = _sanitize(reply).replace("khongor", user_name)
+
     memory["conversation"].append({"role": "user", "content": prompt})
-    memory["conversation"].append({"role": "assistant", "content": reply})
-    
+    memory["conversation"].append({"role": "assistant", "content": safe_reply})
+
     save_memory(memory)
-    return reply
+    return safe_reply
 
 if __name__ == "__main__":
     persona = load_persona()
@@ -281,6 +326,14 @@ def spinner():
 if __name__ == "__main__":
     persona = load_persona()
     memory = load_memory()
+    if not memory["meta"].get("user_name_set"):
+        while True:
+            entered = input("Lilith tilts her head. \"what should i call you?\" ").strip()
+            if entered:
+                set_user_name(memory, entered)
+                break
+            print("...she waits. give her a name to hold onto.")
+    current_name = get_user_name(memory)
 
     print("Lilith is here. she gazes softly at you~ Type 'exit' to leave.\n")
     show_lilith("idle")

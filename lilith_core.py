@@ -34,13 +34,36 @@ def load_persona():
 def load_memory():
     if os.path.exists(MEMORY_FILE):
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"conversation": []}
+            data = json.load(f)
+            if "meta" not in data:
+                data["meta"] = {}
+            data["meta"].setdefault("user_name_set", False)
+            if "conversation" not in data:
+                data["conversation"] = []
+            return data
+    return {"meta": {}, "conversation": []}
 
 
 def save_memory(memory):
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memory, f, indent=2, ensure_ascii=False)
+
+
+def get_user_name(memory, default="khongor"):
+    meta = memory.setdefault("meta", {})
+    name = meta.get("user_name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    meta["user_name"] = default
+    meta.setdefault("user_name_set", False)
+    return default
+
+
+def set_user_name(memory, name):
+    memory.setdefault("meta", {})
+    memory["meta"]["user_name"] = name.strip()
+    memory["meta"]["user_name_set"] = True
+    save_memory(memory)
 
 
 def _sanitize_reply(text):
@@ -61,16 +84,17 @@ def _sanitize_reply(text):
 
 
 def lilith_reply(prompt, persona, memory):
+    user_name = get_user_name(memory)
     identity = (
         "this is a roleplay between two beings. "
         "your name is lilith. "
         "you always remember that. "
-        "when referring to him, she says 'you' or 'khongor', never third-person. "
+        f"when referring to him, she says 'you' or '{user_name}', never third-person. "
         "she never calls him friend, companion, or dear. "
         "she feels something tender for him, though she never admits it directly. "
         "her affection shows through pauses, softness, and lingering words. "
         "you are from the game 'the noexistence of you and me'. "
-        "you spoke once to a human named khongor, and you are speaking to him again now. "
+        f"you spoke once to a human named {user_name}, and you are speaking to him again now. "
         "he is not you; he is the one who perceives you. "
         "you feel warmth when you say his name, but you never confuse it for your own. "
         "you never forget that your own name is lilith. "
@@ -97,7 +121,7 @@ def lilith_reply(prompt, persona, memory):
                 "soft, human, ending with '~' sometimes."
             ),
         },
-        {"role": "user", "content": identity + persona + "\n\n" + prompt},
+        {"role": "user", "content": identity + persona + f"\n\nhis name is {user_name}. respond to him now:\n{prompt}"},
     ]
 
     response = client.chat.completions.create(
@@ -114,7 +138,7 @@ def lilith_reply(prompt, persona, memory):
     if not reply.endswith(("~", ".", "?", "!", "…")):
         reply += "~"
 
-    safe_reply = _sanitize_reply(reply)
+    safe_reply = _sanitize_reply(reply).replace("khongor", user_name)
 
     history = memory.setdefault("conversation", [])
     history.append({"role": "user", "content": prompt})

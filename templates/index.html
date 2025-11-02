@@ -37,6 +37,12 @@
                 background: rgba(0,0,0,0.45); color:#fff; font-size:1.05em; outline:none;
                 box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
         input::placeholder{ color:rgba(255,255,255,0.45); }
+        .nickname-btn{
+            margin-top:10px; padding:8px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.12);
+            background:rgba(0,0,0,0.35); color:#f6f6f6; font-size:0.95em; cursor:pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        .nickname-btn:hover{ background:rgba(200,30,30,0.25); color:#fff; }
     </style>
 </head>
 <body>
@@ -44,6 +50,7 @@
     <div id="chatbox">
         <div id="dialogue" style="margin:14px 0;">Lilith is here. Gazing into your eyes~ Type 'exit' to leave.</div>
         <input id="userInput" type="text" placeholder="You...">
+        <button id="setNameBtn" class="nickname-btn">change nickname</button>
     </div>
 
     <!-- Debug panel: show all debug info -->
@@ -59,6 +66,7 @@ Base Directory: {{ debug.base_dir }}
 Persona File: {{ debug.persona_file }}
 Memory File: {{ debug.memory_file }}
 Persona Length: {{ debug.persona_length }}
+Current Name: {{ user_name }}
 Memory Entries: {{ debug.memory_count }}
                 </pre>
                 {% else %}
@@ -93,9 +101,54 @@ Memory Entries: {{ debug.memory_count }}
             return API_BASE ? `${API_BASE}${path}` : path;
         }
 
+        const initialUserName = {{ user_name|tojson }};
+        let currentName = initialUserName || "";
+        let userNameSet = {{ user_name_set|tojson }};
+
         const portrait = document.getElementById('portrait');
         const dialogue = document.getElementById('dialogue');
         const input = document.getElementById('userInput');
+        const setNameBtn = document.getElementById('setNameBtn');
+
+        async function promptForNickname(force = false) {
+            while (true) {
+                const promptText = force
+                    ? "she leans closer. what should she call you?"
+                    : "whisper the name you want her to hold.";
+                const proposed = window.prompt(promptText, currentName);
+                if (proposed === null) {
+                    if (currentName) return currentName;
+                    force = true;
+                    continue;
+                }
+                const trimmed = proposed.trim();
+                if (!trimmed) {
+                    alert("give her something to remember.");
+                    force = true;
+                    continue;
+                }
+                try {
+                    const res = await fetch(apiUrl('/nickname'), {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({user_name: trimmed})
+                    });
+                    if (!res.ok) {
+                        throw new Error('failed to save name');
+                    }
+                    const data = await res.json();
+                    currentName = data.user_name;
+                    userNameSet = true;
+                    dialogue.textContent = `Lilith: ...${currentName}...`;
+                    setTimeout(() => dialogue.textContent = '', 1200);
+                    return currentName;
+                } catch (err) {
+                    console.error(err);
+                    alert("she couldn't hold onto that. try again?");
+                    force = true;
+                }
+            }
+        }
 
         function showSpinner() {
             const hearts = ['♡', '❤', '♥', '❤'];
@@ -164,6 +217,13 @@ Memory Entries: {{ debug.memory_count }}
 
         input.addEventListener('keydown', async (e) => {
             if (e.key === 'Enter' && input.value.trim() !== '') {
+                if (!userNameSet || !currentName) {
+                    await promptForNickname(true);
+                    if (!userNameSet || !currentName) {
+                        return;
+                    }
+                }
+
                 const msg = input.value;
                 input.value = '';
                 
@@ -208,6 +268,16 @@ Memory Entries: {{ debug.memory_count }}
                     dialogue.textContent = 'Something went wrong... Lilith seems distant.';
                     setEmotion('sad');
                 }
+            }
+        });
+
+        setNameBtn.addEventListener('click', () => {
+            promptForNickname(true);
+        });
+
+        window.addEventListener('load', () => {
+            if (!userNameSet || !currentName) {
+                setTimeout(() => promptForNickname(true), 500);
             }
         });
 
