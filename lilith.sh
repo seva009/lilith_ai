@@ -1,9 +1,9 @@
 #!/bin/bash
 # Lilith one-command launcher 🖤 (CLI version)
 
-BASE_DIR="$HOME/Lilith_ai"
+BASE_DIR="$HOME/lilith_ai"
 SERVER_URL="http://localhost:1234/v1/models"
-LMS_PATH="/home/khongor/.lmstudio/bin/lms" 
+LMS_PATH="$HOME/.lmstudio/bin/lms" 
 
 echo "🌙 Waking up Lilith's mind..."
 
@@ -36,4 +36,4 @@ python "$BASE_DIR/lilith.py"
 
 # When you exit Lilith, close LM Studio
 echo "💤 Putting Lilith to sleep..."
-pkill -f "LM-Studio-0.3.30-2-x64.AppImage"
+pkill -f "LM-Studio-0.3.30-2-x64.AppImage" 

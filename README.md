@@ -52,7 +52,10 @@ pip3 install --user Pillow
 
 **⚙️ Setup**
 
-git clone github.com/nuttyuwu/lilith_ai
+```bash
+cd $HOME
+
+git clone https://github.com/nuttyuwu/lilith_ai.git
 
 cd lilith_ai
 
@@ -63,6 +66,7 @@ source venv/bin/activate
 pip install openai
 
 chmod +x lilith.sh
+```
 
 (i have to tell you LMS you have to open the app yourself first before waking Lilith up)
 
