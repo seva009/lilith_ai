@@ -2,15 +2,19 @@ import json, os
 import subprocess, random
 from datetime import datetime
 from openai import OpenAI
+import configparser
+
+config = configparser.ConfigParser()
+config.read('config.ini')
 
 client = OpenAI(
-    base_url="http://localhost:1234/v1",  # LM Studio local endpoint
-    api_key="not-needed"                  # LM Studio ignores this
+    base_url = config['server']['base_url'],  # LM Studio local endpoint
+    api_key  = config['server']['api_key']    # LM Studio ignores this
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSONA_FILE = os.path.join(BASE_DIR, "lilith_persona.txt")
-MEMORY_FILE = os.path.join(BASE_DIR, "memory.json")
+PERSONA_FILE = os.path.join(BASE_DIR, config['ai_config']['persona'])
+MEMORY_FILE = os.path.join(BASE_DIR, config['ai_config']['memory'])
 DEFAULT_USER_NAME = ""
 
 def load_persona():
@@ -97,9 +101,9 @@ def lilith_reply(prompt, persona, memory):
     response = client.chat.completions.create(
         model="mistral-7b-instruct-v0.3",
         messages=messages,
-        temperature=0.7,
+        temperature=config["ai_config"].getfloat('temperature'),
         top_p=0.9,
-        max_tokens=90,
+        max_tokens=config["ai_config"].getint('max_tokens'),
     )
 
     reply = response.choices[0].message.content.strip()
@@ -124,7 +128,7 @@ def lilith_reply(prompt, persona, memory):
             return f"{user_name}... i've missed your voice~"
         return t
 
-    safe_reply = _sanitize(reply).replace("khongor", user_name)
+    safe_reply = _sanitize(reply).replace("khongor", user_name) # O yeah best code practice :D
 
     memory["conversation"].append({"role": "user", "content": prompt})
     memory["conversation"].append({"role": "assistant", "content": safe_reply})
