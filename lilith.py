@@ -1,5 +1,6 @@
 import json, os
 import subprocess, random
+import queue
 from datetime import datetime
 from openai import OpenAI
 import configparser
@@ -18,6 +19,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PERSONA_FILE = os.path.join(BASE_DIR, config['ai_config']['persona'])
 MEMORY_FILE = os.path.join(BASE_DIR, config['ai_config']['memory'])
 DEFAULT_USER_NAME = ""
+BLINK_QUEUE = queue.Queue()
 
 Lilith_mem = lilith_memory.LilithMemory(BASE_DIR, config, DEFAULT_USER_NAME)
 Lilith_display = lilith_display.LilithDisplay(BASE_DIR, config)
@@ -113,19 +115,6 @@ if __name__ == "__main__":
 import threading, itertools, sys, time
 import os, subprocess, shutil
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FEH_PID_FILE = os.path.join(BASE_DIR, "feh_pid.txt")
-CURRENT_IMG = os.path.join(BASE_DIR, "assets", "current.png")
-VIEWER_SCRIPT = os.path.join(BASE_DIR, "viewer.py")
-
-# state tracking for automatic revert
-LAST_SHOWN_STATE = None
-REVERT_TIMER = None
-REVERT_DELAY = 5  # seconds to wait before returning to idle
-# blinking controls
-BLINK_THREAD = None
-BLINK_RUNNING = False
-
 # keywords that indicate someone is questioning her existence
 EXISTENCE_KEYWORDS = [
     "exist",
@@ -167,33 +156,12 @@ if __name__ == "__main__":
     current_name = Lilith_mem.get_user_name(memory)
 
     print("Lilith is here. she gazes softly at you~ Type 'exit' to leave.\n")
-    lilith_display.show_lilith("idle")
-    # start blink loop
-    try:
-        BLINK_RUNNING = True
-        BLINK_THREAD = threading.Thread(target=Lilith_display._blink_loop, daemon=True)
-        BLINK_THREAD.start()
-    except Exception:
-        pass
+    Lilith_display.show_lilith("idle")
+
     while True:
         user_input = input("You: ")
         if user_input.lower() == "exit":
             print("Lilith: ...until next time, then.")
-            # 🌙 close feh window on exit
-            if os.path.exists(FEH_PID_FILE):
-                with open(FEH_PID_FILE) as f:
-                  pid = f.read().strip()
-            try:
-                os.system(f"kill {pid}")
-            except:
-                pass
-            os.remove(FEH_PID_FILE)
-
-            # stop blink thread and exit
-            try:
-                BLINK_RUNNING = False
-            except Exception:
-                pass
             break
         # if the user questions Lilith's existence, show disappointed immediately
         u_lower = user_input.lower()
