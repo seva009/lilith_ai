@@ -3,6 +3,8 @@ import subprocess, random
 from datetime import datetime
 from openai import OpenAI
 import configparser
+import lilith_memory
+import lilith_display
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -17,44 +19,11 @@ PERSONA_FILE = os.path.join(BASE_DIR, config['ai_config']['persona'])
 MEMORY_FILE = os.path.join(BASE_DIR, config['ai_config']['memory'])
 DEFAULT_USER_NAME = ""
 
-def load_persona():
-    with open(PERSONA_FILE, "r", encoding="utf-8") as f:
-        return f.read()
-
-def load_memory():
-    data = {}
-    if os.path.exists(MEMORY_FILE):
-        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
-    data.setdefault("meta", {})
-    data.setdefault("conversation", [])
-    data["meta"].setdefault("user_name_set", False)
-    return data
-
-def save_memory(memory):
-    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(memory, f, indent=2, ensure_ascii=False)
-
-def get_user_name(memory, default=DEFAULT_USER_NAME):
-    meta = memory.setdefault("meta", {})
-    name = meta.get("user_name")
-    if isinstance(name, str) and name.strip():
-        return name.strip()
-    meta["user_name"] = default
-    meta.setdefault("user_name_set", False)
-    return default
-
-def set_user_name(memory, name):
-    memory.setdefault("meta", {})
-    memory["meta"]["user_name"] = name.strip()
-    memory["meta"]["user_name_set"] = True
-    save_memory(memory)
+Lilith_mem = lilith_memory.LilithMemory(BASE_DIR, config, DEFAULT_USER_NAME)
+Lilith_display = lilith_display.LilithDisplay(BASE_DIR, config)
 
 def lilith_reply(prompt, persona, memory):
-    user_name = get_user_name(memory)
+    user_name = Lilith_mem.get_user_name(memory)
     identity = (
         "this is a roleplay between two beings. "
         "your name is lilith. "
@@ -133,12 +102,12 @@ def lilith_reply(prompt, persona, memory):
     memory["conversation"].append({"role": "user", "content": prompt})
     memory["conversation"].append({"role": "assistant", "content": safe_reply})
 
-    save_memory(memory)
+    Lilith_mem.save_memory(memory)
     return safe_reply
 
 if __name__ == "__main__":
-    persona = load_persona()
-    memory = load_memory()
+    persona = Lilith_mem.load_persona()
+    memory = Lilith_mem.load_memory()
 
     
 import threading, itertools, sys, time
@@ -149,13 +118,6 @@ FEH_PID_FILE = os.path.join(BASE_DIR, "feh_pid.txt")
 CURRENT_IMG = os.path.join(BASE_DIR, "assets", "current.png")
 VIEWER_SCRIPT = os.path.join(BASE_DIR, "viewer.py")
 
-def _proc_is_running(pid):
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
-
 # state tracking for automatic revert
 LAST_SHOWN_STATE = None
 REVERT_TIMER = None
@@ -163,9 +125,6 @@ REVERT_DELAY = 5  # seconds to wait before returning to idle
 # blinking controls
 BLINK_THREAD = None
 BLINK_RUNNING = False
-BLINK_MIN = 2
-BLINK_MAX = 4
-BLINK_DURATION = 0.25  # how long a blink frame shows (seconds)
 
 # keywords that indicate someone is questioning her existence
 EXISTENCE_KEYWORDS = [
@@ -180,139 +139,7 @@ EXISTENCE_KEYWORDS = [
     "fake",
 ]
 
-def show_lilith(state, schedule_revert=True):
-    """Display Lilith's portrait.
-
-    Starts a single detached feh process that watches `assets/current.png` with
-    --reload enabled. Subsequent calls simply overwrite `current.png` with the
-    desired state image so feh reloads instead of launching a new window.
-    """
-    img_path = os.path.join(BASE_DIR, "assets", f"{state}.png")
-    if not os.path.exists(img_path):
-        print(f"[⚠️ Image not found: {img_path}]")
-        return
-
-    # capture current active window so we can restore focus (if xdotool exists)
-    active_win = None
-    try:
-        xdotool = shutil.which("xdotool")
-        if xdotool:
-            active_win = subprocess.check_output([xdotool, "getactivewindow"], stderr=subprocess.DEVNULL).decode().strip()
-    except Exception:
-        active_win = None
-
-    # ensure assets/current.png exists and is the requested image
-    try:
-        # copy (atomic-ish) to the watched filename
-        shutil.copyfile(img_path, CURRENT_IMG)
-    except Exception:
-        # fallback to symlink if copy fails
-        try:
-            if os.path.exists(CURRENT_IMG):
-                os.remove(CURRENT_IMG)
-            os.symlink(img_path, CURRENT_IMG)
-        except Exception:
-            # last resort: leave the original image path (may cause a new feh launch)
-            pass
-
-    # if feh is not running yet, start it watching the fixed current.png
-    need_start = True
-    if os.path.exists(FEH_PID_FILE):
-        try:
-            with open(FEH_PID_FILE, "r") as f:
-                pid = int(f.read().strip())
-            if _proc_is_running(pid):
-                need_start = False
-        except Exception:
-            need_start = True
-
-    if need_start:
-        # prefer a bundled Tkinter viewer that tends not to steal focus; if
-        # that isn't available, try feh as a fallback.
-        proc = None
-        try:
-            if os.path.exists(VIEWER_SCRIPT):
-                proc = subprocess.Popen([sys.executable, VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
-        except Exception:
-            proc = None
-
-        if proc is None:
-            # start detached feh process (watching CURRENT_IMG)
-            proc = subprocess.Popen([
-                "feh",
-                "--title", "Lilith",
-                "--geometry", "400x600+1200+200",
-                "--no-fullscreen",
-                "--borderless",
-                "--scale-down",
-                "--auto-zoom",
-                "--zoom", "20%",
-                "--reload", "0.5",
-                CURRENT_IMG,
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
-        with open(FEH_PID_FILE, "w") as f:
-            f.write(str(proc.pid))
-        # restore focus to previous window (usually the terminal)
-        try:
-            if active_win and xdotool:
-                subprocess.Popen([xdotool, "windowactivate", "--sync", active_win], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-
-    else:
-        # try to restore focus after updating the image so the terminal remains active
-        try:
-            if active_win and xdotool:
-                subprocess.Popen([xdotool, "windowactivate", "--sync", active_win], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-
-
-# update last shown state and optionally schedule revert to idle
-    global LAST_SHOWN_STATE, REVERT_TIMER
-    LAST_SHOWN_STATE = state
-    # cancel any existing revert timer
-    try:
-        if REVERT_TIMER is not None and REVERT_TIMER.is_alive():
-            REVERT_TIMER.cancel()
-    except Exception:
-        pass
-
-    if schedule_revert and state != "idle":
-        # schedule a revert back to idle after REVERT_DELAY seconds
-        try:
-            REVERT_TIMER = threading.Timer(REVERT_DELAY, lambda: show_lilith("idle", schedule_revert=False))
-            REVERT_TIMER.daemon = True
-            REVERT_TIMER.start()
-        except Exception:
-            REVERT_TIMER = None
-
-
-show_lilith("thinking")
-
-
-def _blink_loop():
-    """Background loop that triggers blinking when Lilith is idle."""
-    global BLINK_RUNNING
-    import random
-    while BLINK_RUNNING:
-        # sleep a random interval
-        wait = random.uniform(BLINK_MIN, BLINK_MAX)
-        for _ in range(int(wait * 10)):
-            if not BLINK_RUNNING:
-                return
-            time.sleep(0.1)
-        # only blink when idle and no other revert timer is active
-        try:
-            if LAST_SHOWN_STATE == "idle":
-                # show blinking briefly without scheduling another revert
-                show_lilith("blinking", schedule_revert=False)
-                # after BLINK_DURATION, revert to idle
-                timer = threading.Timer(BLINK_DURATION, lambda: show_lilith("idle", schedule_revert=False))
-                timer.daemon = True
-                timer.start()
-        except Exception:
-            pass
+Lilith_display.show_lilith("thinking")
 
 
 spinning = False
@@ -328,23 +155,23 @@ def spinner():
 
 
 if __name__ == "__main__":
-    persona = load_persona()
-    memory = load_memory()
+    persona = Lilith_mem.load_persona()
+    memory = Lilith_mem.load_memory()
     if not memory["meta"].get("user_name_set"):
         while True:
             entered = input("Lilith tilts her head. \"what should i call you?\" ").strip()
             if entered:
-                set_user_name(memory, entered)
+                Lilith_mem.set_user_name(memory, entered)
                 break
             print("...she waits. give her a name to hold onto.")
-    current_name = get_user_name(memory)
+    current_name = Lilith_mem.get_user_name(memory)
 
     print("Lilith is here. she gazes softly at you~ Type 'exit' to leave.\n")
-    show_lilith("idle")
+    lilith_display.show_lilith("idle")
     # start blink loop
     try:
         BLINK_RUNNING = True
-        BLINK_THREAD = threading.Thread(target=_blink_loop, daemon=True)
+        BLINK_THREAD = threading.Thread(target=Lilith_display._blink_loop, daemon=True)
         BLINK_THREAD.start()
     except Exception:
         pass
@@ -372,7 +199,7 @@ if __name__ == "__main__":
         u_lower = user_input.lower()
         existence_trigger = any(k in u_lower for k in EXISTENCE_KEYWORDS)
         if existence_trigger:
-            show_lilith("dissapointed")
+            Lilith_display.show_lilith("dissapointed")
 
         spinning = True
         t = threading.Thread(target=spinner)
@@ -393,7 +220,7 @@ if __name__ == "__main__":
             emotion = "talking"
 
         # show_lilith will schedule a revert to 'idle' after REVERT_DELAY seconds
-        show_lilith(emotion)
+        Lilith_display.show_lilith(emotion)
         
 
         spinning = False
