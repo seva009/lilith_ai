@@ -12,6 +12,7 @@ class LilithAI:
         self.config     = config
         self.persona    = self.Lilith_mem.load_persona()
         self.memory     = self.Lilith_mem.load_memory()
+        self.last_reply  = ""
         pass
 
     def lilith_reply(self, prompt):
@@ -95,6 +96,7 @@ class LilithAI:
         self.memory["conversation"].append({"role": "assistant", "content": safe_reply})
 
         self.Lilith_mem.save_memory(self.memory)
+        self.last_reply = safe_reply
         return safe_reply
     
     def set_user_name(self, name):
@@ -105,3 +107,16 @@ class LilithAI:
     
     def has_user_name(self):
         return self.memory["meta"].get("user_name_set", False)
+    
+    def get_current_emotion(self):
+        r_lower = self.last_reply.lower()
+        if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying"]):
+            return "sad"
+        elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy"]):
+            return "smile"
+        elif any(word in r_lower for word in ["...", "heavy", "missed"]):
+            return "thinking"
+        elif any(phrase in r_lower for phrase in ["of course", "ofcourse"]):
+            return "cheeky"
+        else:
+            return "talking"

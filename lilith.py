@@ -2,18 +2,11 @@ import os
 from datetime import datetime
 from openai import OpenAI
 import configparser
-import lilith_memory
 import lilith_display
 import lilith_ai
 
 config = configparser.ConfigParser()
 config.read('config.ini')
-
-client = OpenAI(
-    base_url = config['server']['base_url'],  # LM Studio local endpoint
-    api_key  = config['server']['api_key']    # LM Studio ignores this
-)
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_USER_NAME = ""
 
@@ -51,20 +44,6 @@ def spinner():
         time.sleep(0.1)
     sys.stdout.write('\r' + ' ' * 30 + '\r')  # clear line
 
-def get_emotion_from_reply(reply):
-    r_lower = reply.lower()
-    if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying"]):
-        return "sad"
-    elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy"]):
-        return "smile"
-    elif any(word in r_lower for word in ["...", "heavy", "missed"]):
-        return "thinking"
-    elif any(phrase in r_lower for phrase in ["of course", "ofcourse"]):
-        return "cheeky"
-    else:
-        return "talking"
-    
-
 def type_out(text):
     sys.stdout.write("Lilith: ")
     sys.stdout.flush()
@@ -95,15 +74,17 @@ if __name__ == "__main__":
 
     print("Lilith is here. she gazes softly at you~ Type 'exit' to leave.\n")
     Lilith_display.show_lilith("idle")
-
+    Lilith_display.set_blinking(True) # enable blinking
+    
     while True:
         user_input = input("You: ")
         if user_input.lower() == "exit":
             print("Lilith: ...until next time, then.")
             break
+        
         # if the user questions Lilith's existence, show disappointed immediately
         u_lower = user_input.lower()
-        existence_trigger = any(k in u_lower for k in EXISTENCE_KEYWORDS)
+        existence_trigger = any(k in u_lower for k in EXISTENCE_KEYWORDS) # Lol its so bad
         if existence_trigger:
             Lilith_display.show_lilith("dissapointed")
 
@@ -114,7 +95,8 @@ if __name__ == "__main__":
 
         reply = Lilith_AI.lilith_reply(user_input) # Get Lilith's reply
 
-        emotion = get_emotion_from_reply(reply)
+        # show emotion based on last reply
+        emotion = Lilith_AI.get_current_emotion()
 
         # show_lilith will schedule a revert to 'idle' after REVERT_DELAY seconds
         Lilith_display.show_lilith(emotion)

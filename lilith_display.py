@@ -4,7 +4,7 @@ import subprocess
 import threading
 import shutil
 import time
-import queue
+import random
 
 class LilithDisplay:
     def __init__(self, base_dir, config):
@@ -36,9 +36,6 @@ class LilithDisplay:
             return
 
         try:
-            os.remove(self.CURRENT_IMG)
-        except Exception:
-            pass
             shutil.copy(state_img, self.CURRENT_IMG)
             self.LAST_SHOWN_STATE = state
             self.LAST_CHANGE_TIME = time.time()
@@ -53,3 +50,17 @@ class LilithDisplay:
                     self.show_lilith("idle", schedule_revert=False)
 
             threading.Thread(target=revert_after_delay, daemon=True).start()
+
+    def set_blinking(self, enable):
+        if enable:
+            def blink_loop():
+                while True:
+                    interval = random.uniform(self.BLINK_MIN, self.BLINK_MAX)
+                    time.sleep(interval)
+                    prev_state = self.LAST_SHOWN_STATE
+                    self.show_lilith("blinking", schedule_revert=False)
+                    time.sleep(self.BLINK_DURATION)
+                    if prev_state != "blinking":
+                        self.show_lilith(prev_state, schedule_revert=False)
+
+            threading.Thread(target=blink_loop, daemon=True).start()
