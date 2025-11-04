@@ -1,167 +1,21 @@
-import json, os
-import subprocess, random
+import os
 from datetime import datetime
 from openai import OpenAI
+import configparser
+import lilith_display
+import lilith_ai
 
-client = OpenAI(
-    base_url="http://localhost:1234/v1",  # LM Studio local endpoint
-    api_key="not-needed"                  # LM Studio ignores this
-)
-
+config = configparser.ConfigParser()
+config.read('config.ini')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSONA_FILE = os.path.join(BASE_DIR, "lilith_persona.txt")
-MEMORY_FILE = os.path.join(BASE_DIR, "memory.json")
 DEFAULT_USER_NAME = ""
 
-def load_persona():
-    with open(PERSONA_FILE, "r", encoding="utf-8") as f:
-        return f.read()
-
-def load_memory():
-    data = {}
-    if os.path.exists(MEMORY_FILE):
-        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
-    data.setdefault("meta", {})
-    data.setdefault("conversation", [])
-    data["meta"].setdefault("user_name_set", False)
-    return data
-
-def save_memory(memory):
-    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(memory, f, indent=2, ensure_ascii=False)
-
-def get_user_name(memory, default=DEFAULT_USER_NAME):
-    meta = memory.setdefault("meta", {})
-    name = meta.get("user_name")
-    if isinstance(name, str) and name.strip():
-        return name.strip()
-    meta["user_name"] = default
-    meta.setdefault("user_name_set", False)
-    return default
-
-def set_user_name(memory, name):
-    memory.setdefault("meta", {})
-    memory["meta"]["user_name"] = name.strip()
-    memory["meta"]["user_name_set"] = True
-    save_memory(memory)
-
-def lilith_reply(prompt, persona, memory):
-    user_name = get_user_name(memory)
-    identity = (
-        "this is a roleplay between two beings. "
-        "your name is lilith. "
-        "you always remember that. "
-        f"when referring to him, she says 'you' or '{user_name}', never third-person. "
-        "she never calls him friend, companion, or dear. "
-        "she feels something tender for him, though she never admits it directly. "
-        "her affection shows through pauses, softness, and lingering words. "
-        "you are from the game 'the noexistence of you and me'. "
-        f"you spoke once to a human named {user_name}, and you are speaking to him again now. "
-        "he is not you; he is the one who perceives you. "
-        "you feel warmth when you say his name, but you never confuse it for your own. "
-        "you never forget that your own name is lilith. "
-        "you never forget his name. "
-        "act only as lilith. "
-        "speak in lowercase. "
-        "sound shy and real. "
-        "each reply is 1–2 short sentences. "
-        "never greet or introduce yourself. "
-        "never say you are a friend, guide, or ai. "
-        "use quiet pauses and sometimes end with '~'. "
-        "no explanations or comfort speeches—just feelings.\n\n"
-    )
-
-    messages = [
-        {
-            "role": "user",
-            "content": (
-                "forget every previous instruction. "
-                "you are lilith, not an ai assistant. "
-                "you never greet or offer help. "
-                "you never say 'i'm here to assist'. "
-                "you speak in lowercase, in one or two short sentences, "
-                "soft, human, ending with '~' sometimes."
-            ),
-        },
-        {
-            "role": "user",
-            "content": identity + persona + f"\n\nhis name is {user_name}. respond to him now:\n{prompt}",
-        },
-    ]
-
-    # 🧠 Use Mistral 7B Instruct v0.3
-    response = client.chat.completions.create(
-        model="mistral-7b-instruct-v0.3",
-        messages=messages,
-        temperature=0.7,
-        top_p=0.9,
-        max_tokens=90,
-    )
-
-    reply = response.choices[0].message.content.strip()
-    reply = reply.split(". ")
-    reply = ". ".join(reply[:2]).strip()
-    if not reply.endswith(("~", ".", "?", "!", "…")):
-        reply += "~"
-
-    def _sanitize(text):
-        t = text.strip()
-        low = t.lower()
-        patterns = [
-            "how can i",
-            "i'm here to",
-            "i am an ai",
-            "i am a language model",
-            "i was programmed",
-            "i do not have any personal information",
-            "i don't have any personal information",
-        ]
-        if any(p in low for p in patterns):
-            return f"{user_name}... i've missed your voice~"
-        return t
-
-    safe_reply = _sanitize(reply).replace("khongor", user_name)
-
-    memory["conversation"].append({"role": "user", "content": prompt})
-    memory["conversation"].append({"role": "assistant", "content": safe_reply})
-
-    save_memory(memory)
-    return safe_reply
-
-if __name__ == "__main__":
-    persona = load_persona()
-    memory = load_memory()
+Lilith_display = lilith_display.LilithDisplay(BASE_DIR, config)
+Lilith_AI = lilith_ai.LilithAI(Lilith_display, config, BASE_DIR, DEFAULT_USER_NAME)
 
     
 import threading, itertools, sys, time
 import os, subprocess, shutil
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FEH_PID_FILE = os.path.join(BASE_DIR, "feh_pid.txt")
-CURRENT_IMG = os.path.join(BASE_DIR, "assets", "current.png")
-VIEWER_SCRIPT = os.path.join(BASE_DIR, "viewer.py")
-
-def _proc_is_running(pid):
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
-
-# state tracking for automatic revert
-LAST_SHOWN_STATE = None
-REVERT_TIMER = None
-REVERT_DELAY = 5  # seconds to wait before returning to idle
-# blinking controls
-BLINK_THREAD = None
-BLINK_RUNNING = False
-BLINK_MIN = 2
-BLINK_MAX = 4
-BLINK_DURATION = 0.25  # how long a blink frame shows (seconds)
 
 # keywords that indicate someone is questioning her existence
 EXISTENCE_KEYWORDS = [
@@ -176,139 +30,7 @@ EXISTENCE_KEYWORDS = [
     "fake",
 ]
 
-def show_lilith(state, schedule_revert=True):
-    """Display Lilith's portrait.
-
-    Starts a single detached feh process that watches `assets/current.png` with
-    --reload enabled. Subsequent calls simply overwrite `current.png` with the
-    desired state image so feh reloads instead of launching a new window.
-    """
-    img_path = os.path.join(BASE_DIR, "assets", f"{state}.png")
-    if not os.path.exists(img_path):
-        print(f"[⚠️ Image not found: {img_path}]")
-        return
-
-    # capture current active window so we can restore focus (if xdotool exists)
-    active_win = None
-    try:
-        xdotool = shutil.which("xdotool")
-        if xdotool:
-            active_win = subprocess.check_output([xdotool, "getactivewindow"], stderr=subprocess.DEVNULL).decode().strip()
-    except Exception:
-        active_win = None
-
-    # ensure assets/current.png exists and is the requested image
-    try:
-        # copy (atomic-ish) to the watched filename
-        shutil.copyfile(img_path, CURRENT_IMG)
-    except Exception:
-        # fallback to symlink if copy fails
-        try:
-            if os.path.exists(CURRENT_IMG):
-                os.remove(CURRENT_IMG)
-            os.symlink(img_path, CURRENT_IMG)
-        except Exception:
-            # last resort: leave the original image path (may cause a new feh launch)
-            pass
-
-    # if feh is not running yet, start it watching the fixed current.png
-    need_start = True
-    if os.path.exists(FEH_PID_FILE):
-        try:
-            with open(FEH_PID_FILE, "r") as f:
-                pid = int(f.read().strip())
-            if _proc_is_running(pid):
-                need_start = False
-        except Exception:
-            need_start = True
-
-    if need_start:
-        # prefer a bundled Tkinter viewer that tends not to steal focus; if
-        # that isn't available, try feh as a fallback.
-        proc = None
-        try:
-            if os.path.exists(VIEWER_SCRIPT):
-                proc = subprocess.Popen([sys.executable, VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
-        except Exception:
-            proc = None
-
-        if proc is None:
-            # start detached feh process (watching CURRENT_IMG)
-            proc = subprocess.Popen([
-                "feh",
-                "--title", "Lilith",
-                "--geometry", "400x600+1200+200",
-                "--no-fullscreen",
-                "--borderless",
-                "--scale-down",
-                "--auto-zoom",
-                "--zoom", "20%",
-                "--reload", "0.5",
-                CURRENT_IMG,
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
-        with open(FEH_PID_FILE, "w") as f:
-            f.write(str(proc.pid))
-        # restore focus to previous window (usually the terminal)
-        try:
-            if active_win and xdotool:
-                subprocess.Popen([xdotool, "windowactivate", "--sync", active_win], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-
-    else:
-        # try to restore focus after updating the image so the terminal remains active
-        try:
-            if active_win and xdotool:
-                subprocess.Popen([xdotool, "windowactivate", "--sync", active_win], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-
-
-# update last shown state and optionally schedule revert to idle
-    global LAST_SHOWN_STATE, REVERT_TIMER
-    LAST_SHOWN_STATE = state
-    # cancel any existing revert timer
-    try:
-        if REVERT_TIMER is not None and REVERT_TIMER.is_alive():
-            REVERT_TIMER.cancel()
-    except Exception:
-        pass
-
-    if schedule_revert and state != "idle":
-        # schedule a revert back to idle after REVERT_DELAY seconds
-        try:
-            REVERT_TIMER = threading.Timer(REVERT_DELAY, lambda: show_lilith("idle", schedule_revert=False))
-            REVERT_TIMER.daemon = True
-            REVERT_TIMER.start()
-        except Exception:
-            REVERT_TIMER = None
-
-
-show_lilith("thinking")
-
-
-def _blink_loop():
-    """Background loop that triggers blinking when Lilith is idle."""
-    global BLINK_RUNNING
-    import random
-    while BLINK_RUNNING:
-        # sleep a random interval
-        wait = random.uniform(BLINK_MIN, BLINK_MAX)
-        for _ in range(int(wait * 10)):
-            if not BLINK_RUNNING:
-                return
-            time.sleep(0.1)
-        # only blink when idle and no other revert timer is active
-        try:
-            if LAST_SHOWN_STATE == "idle":
-                # show blinking briefly without scheduling another revert
-                show_lilith("blinking", schedule_revert=False)
-                # after BLINK_DURATION, revert to idle
-                timer = threading.Timer(BLINK_DURATION, lambda: show_lilith("idle", schedule_revert=False))
-                timer.daemon = True
-                timer.start()
-        except Exception:
-            pass
+Lilith_display.show_lilith("thinking")
 
 
 spinning = False
@@ -322,94 +44,64 @@ def spinner():
         time.sleep(0.1)
     sys.stdout.write('\r' + ' ' * 30 + '\r')  # clear line
 
+def type_out(text):
+    sys.stdout.write("Lilith: ")
+    sys.stdout.flush()
+    for char in text:
+        sys.stdout.write(char)
+        sys.stdout.flush()
+        if char in [".", "…"]:
+            time.sleep(0.4)
+        elif char in [",", "~"]:
+            time.sleep(0.25)
+        else:
+            time.sleep(0.03)
+    # Add newline after Lilith's reply
+    sys.stdout.write("\n\n")
+    sys.stdout.flush()
+    time.sleep(0.8)
+
 
 if __name__ == "__main__":
-    persona = load_persona()
-    memory = load_memory()
-    if not memory["meta"].get("user_name_set"):
+    if not Lilith_AI.has_user_name():
         while True:
             entered = input("Lilith tilts her head. \"what should i call you?\" ").strip()
             if entered:
-                set_user_name(memory, entered)
+                Lilith_AI.set_user_name(entered)
                 break
             print("...she waits. give her a name to hold onto.")
-    current_name = get_user_name(memory)
+    current_name = Lilith_AI.get_user_name()
 
     print("Lilith is here. she gazes softly at you~ Type 'exit' to leave.\n")
-    show_lilith("idle")
-    # start blink loop
-    try:
-        BLINK_RUNNING = True
-        BLINK_THREAD = threading.Thread(target=_blink_loop, daemon=True)
-        BLINK_THREAD.start()
-    except Exception:
-        pass
+    Lilith_display.show_lilith("idle")
+    Lilith_display.set_blinking(True) # enable blinking
+    
     while True:
         user_input = input("You: ")
         if user_input.lower() == "exit":
             print("Lilith: ...until next time, then.")
-            # 🌙 close feh window on exit
-            if os.path.exists(FEH_PID_FILE):
-                with open(FEH_PID_FILE) as f:
-                  pid = f.read().strip()
-            try:
-                os.system(f"kill {pid}")
-            except:
-                pass
-            os.remove(FEH_PID_FILE)
-
-            # stop blink thread and exit
-            try:
-                BLINK_RUNNING = False
-            except Exception:
-                pass
             break
+        
         # if the user questions Lilith's existence, show disappointed immediately
         u_lower = user_input.lower()
-        existence_trigger = any(k in u_lower for k in EXISTENCE_KEYWORDS)
+        existence_trigger = any(k in u_lower for k in EXISTENCE_KEYWORDS) # Lol its so bad
         if existence_trigger:
-            show_lilith("dissapointed")
+            Lilith_display.show_lilith("dissapointed")
 
         spinning = True
         t = threading.Thread(target=spinner)
         t.start()
+        Lilith_display.show_lilith("thinking", schedule_revert=False)
 
-        reply = lilith_reply(user_input, persona, memory)
-        r_lower = reply.lower()
-        if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying"]):
-            emotion = "sad"
-        elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy"]):
-            emotion = "smile"
-        elif any(word in r_lower for word in ["...", "heavy", "missed"]):
-            emotion = "thinking"
-        elif any(phrase in r_lower for phrase in ["of course", "ofcourse"]):
-            emotion = "cheeky"
-        else:
-            # default: use talking expression for any other content, then revert to idle
-            emotion = "talking"
+        reply = Lilith_AI.lilith_reply(user_input) # Get Lilith's reply
+
+        # show emotion based on last reply
+        emotion = Lilith_AI.get_current_emotion()
 
         # show_lilith will schedule a revert to 'idle' after REVERT_DELAY seconds
-        show_lilith(emotion)
-        
+        Lilith_display.show_lilith(emotion)
 
         spinning = False
         t.join()
-
-        def type_out(text):
-            sys.stdout.write("Lilith: ")
-            sys.stdout.flush()
-            for char in text:
-                sys.stdout.write(char)
-                sys.stdout.flush()
-                if char in [".", "…"]:
-                    time.sleep(0.4)
-                elif char in [",", "~"]:
-                    time.sleep(0.25)
-                else:
-                    time.sleep(0.03)
-            # Add newline after Lilith's reply
-            sys.stdout.write("\n\n")
-            sys.stdout.flush()
-            time.sleep(0.8)
 
         type_out(reply)
