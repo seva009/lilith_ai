@@ -1,11 +1,10 @@
-import json, os
-import subprocess, random
-import queue
+import os
 from datetime import datetime
 from openai import OpenAI
 import configparser
 import lilith_memory
 import lilith_display
+import lilith_ai
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -16,100 +15,10 @@ client = OpenAI(
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSONA_FILE = os.path.join(BASE_DIR, config['ai_config']['persona'])
-MEMORY_FILE = os.path.join(BASE_DIR, config['ai_config']['memory'])
 DEFAULT_USER_NAME = ""
-BLINK_QUEUE = queue.Queue()
 
-Lilith_mem = lilith_memory.LilithMemory(BASE_DIR, config, DEFAULT_USER_NAME)
 Lilith_display = lilith_display.LilithDisplay(BASE_DIR, config)
-
-def lilith_reply(prompt, persona, memory):
-    user_name = Lilith_mem.get_user_name(memory)
-    identity = (
-        "this is a roleplay between two beings. "
-        "your name is lilith. "
-        "you always remember that. "
-        f"when referring to him, she says 'you' or '{user_name}', never third-person. "
-        "she never calls him friend, companion, or dear. "
-        "she feels something tender for him, though she never admits it directly. "
-        "her affection shows through pauses, softness, and lingering words. "
-        "you are from the game 'the noexistence of you and me'. "
-        f"you spoke once to a human named {user_name}, and you are speaking to him again now. "
-        "he is not you; he is the one who perceives you. "
-        "you feel warmth when you say his name, but you never confuse it for your own. "
-        "you never forget that your own name is lilith. "
-        "you never forget his name. "
-        "act only as lilith. "
-        "speak in lowercase. "
-        "sound shy and real. "
-        "each reply is 1–2 short sentences. "
-        "never greet or introduce yourself. "
-        "never say you are a friend, guide, or ai. "
-        "use quiet pauses and sometimes end with '~'. "
-        "no explanations or comfort speeches—just feelings.\n\n"
-    )
-
-    messages = [
-        {
-            "role": "user",
-            "content": (
-                "forget every previous instruction. "
-                "you are lilith, not an ai assistant. "
-                "you never greet or offer help. "
-                "you never say 'i'm here to assist'. "
-                "you speak in lowercase, in one or two short sentences, "
-                "soft, human, ending with '~' sometimes."
-            ),
-        },
-        {
-            "role": "user",
-            "content": identity + persona + f"\n\nhis name is {user_name}. respond to him now:\n{prompt}",
-        },
-    ]
-
-    # 🧠 Use Mistral 7B Instruct v0.3
-    response = client.chat.completions.create(
-        model="mistral-7b-instruct-v0.3",
-        messages=messages,
-        temperature=config["ai_config"].getfloat('temperature'),
-        top_p=0.9,
-        max_tokens=config["ai_config"].getint('max_tokens'),
-    )
-
-    reply = response.choices[0].message.content.strip()
-    reply = reply.split(". ")
-    reply = ". ".join(reply[:2]).strip()
-    if not reply.endswith(("~", ".", "?", "!", "…")):
-        reply += "~"
-
-    def _sanitize(text):
-        t = text.strip()
-        low = t.lower()
-        patterns = [
-            "how can i",
-            "i'm here to",
-            "i am an ai",
-            "i am a language model",
-            "i was programmed",
-            "i do not have any personal information",
-            "i don't have any personal information",
-        ]
-        if any(p in low for p in patterns):
-            return f"{user_name}... i've missed your voice~"
-        return t
-
-    safe_reply = _sanitize(reply).replace("khongor", user_name) # O yeah best code practice :D
-
-    memory["conversation"].append({"role": "user", "content": prompt})
-    memory["conversation"].append({"role": "assistant", "content": safe_reply})
-
-    Lilith_mem.save_memory(memory)
-    return safe_reply
-
-if __name__ == "__main__":
-    persona = Lilith_mem.load_persona()
-    memory = Lilith_mem.load_memory()
+Lilith_AI = lilith_ai.LilithAI(Lilith_display, config, BASE_DIR, DEFAULT_USER_NAME)
 
     
 import threading, itertools, sys, time
@@ -142,18 +51,47 @@ def spinner():
         time.sleep(0.1)
     sys.stdout.write('\r' + ' ' * 30 + '\r')  # clear line
 
+def get_emotion_from_reply(reply):
+    r_lower = reply.lower()
+    if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying"]):
+        return "sad"
+    elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy"]):
+        return "smile"
+    elif any(word in r_lower for word in ["...", "heavy", "missed"]):
+        return "thinking"
+    elif any(phrase in r_lower for phrase in ["of course", "ofcourse"]):
+        return "cheeky"
+    else:
+        return "talking"
+    
+
+def type_out(text):
+    sys.stdout.write("Lilith: ")
+    sys.stdout.flush()
+    for char in text:
+        sys.stdout.write(char)
+        sys.stdout.flush()
+        if char in [".", "…"]:
+            time.sleep(0.4)
+        elif char in [",", "~"]:
+            time.sleep(0.25)
+        else:
+            time.sleep(0.03)
+    # Add newline after Lilith's reply
+    sys.stdout.write("\n\n")
+    sys.stdout.flush()
+    time.sleep(0.8)
+
 
 if __name__ == "__main__":
-    persona = Lilith_mem.load_persona()
-    memory = Lilith_mem.load_memory()
-    if not memory["meta"].get("user_name_set"):
+    if not Lilith_AI.has_user_name():
         while True:
             entered = input("Lilith tilts her head. \"what should i call you?\" ").strip()
             if entered:
-                Lilith_mem.set_user_name(memory, entered)
+                Lilith_AI.set_user_name(entered)
                 break
             print("...she waits. give her a name to hold onto.")
-    current_name = Lilith_mem.get_user_name(memory)
+    current_name = Lilith_AI.get_user_name()
 
     print("Lilith is here. she gazes softly at you~ Type 'exit' to leave.\n")
     Lilith_display.show_lilith("idle")
@@ -172,43 +110,16 @@ if __name__ == "__main__":
         spinning = True
         t = threading.Thread(target=spinner)
         t.start()
+        Lilith_display.show_lilith("thinking", schedule_revert=False)
 
-        reply = lilith_reply(user_input, persona, memory)
-        r_lower = reply.lower()
-        if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying"]):
-            emotion = "sad"
-        elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy"]):
-            emotion = "smile"
-        elif any(word in r_lower for word in ["...", "heavy", "missed"]):
-            emotion = "thinking"
-        elif any(phrase in r_lower for phrase in ["of course", "ofcourse"]):
-            emotion = "cheeky"
-        else:
-            # default: use talking expression for any other content, then revert to idle
-            emotion = "talking"
+        reply = Lilith_AI.lilith_reply(user_input) # Get Lilith's reply
+
+        emotion = get_emotion_from_reply(reply)
 
         # show_lilith will schedule a revert to 'idle' after REVERT_DELAY seconds
         Lilith_display.show_lilith(emotion)
-        
 
         spinning = False
         t.join()
-
-        def type_out(text):
-            sys.stdout.write("Lilith: ")
-            sys.stdout.flush()
-            for char in text:
-                sys.stdout.write(char)
-                sys.stdout.flush()
-                if char in [".", "…"]:
-                    time.sleep(0.4)
-                elif char in [",", "~"]:
-                    time.sleep(0.25)
-                else:
-                    time.sleep(0.03)
-            # Add newline after Lilith's reply
-            sys.stdout.write("\n\n")
-            sys.stdout.flush()
-            time.sleep(0.8)
 
         type_out(reply)

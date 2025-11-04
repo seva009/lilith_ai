@@ -39,7 +39,7 @@ class LilithDisplay:
             os.remove(self.CURRENT_IMG)
         except Exception:
             pass
-            shutil.copyfile(state_img, self.CURRENT_IMG)
+            shutil.copy(state_img, self.CURRENT_IMG)
             self.LAST_SHOWN_STATE = state
             self.LAST_CHANGE_TIME = time.time()
         except Exception as e:
