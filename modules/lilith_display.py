@@ -1,10 +1,12 @@
 import os
-import sys
-import subprocess
 import threading
 import shutil
+import sys
+import subprocess
 import time
 import random
+import modules.viewer as viewer_module
+
 
 class LilithDisplay:
     def __init__(self, base_dir, config):
@@ -12,23 +14,18 @@ class LilithDisplay:
         self.config = config
         self.ASSETS_PATH = config.get('lilith_display', 'assets_path', fallback='assets/')
         self.CURRENT_IMG = os.path.join(base_dir, self.ASSETS_PATH, "current.png")
-        self.VIEWER_SCRIPT = os.path.join(base_dir, "viewer.py")
+        self.VIEWER_SCRIPT = os.path.join(base_dir, config.get('lilith_display', 'display_path', fallback='modules/viewer.py'))
         self.REVERT_DELAY = config.getint('lilith_display', 'revert_delay', fallback=5)
         self.BLINK_MIN = config.getint('lilith_display', 'blink_min_interval', fallback=2)
         self.BLINK_MAX = config.getint('lilith_display', 'blink_max_interval', fallback=4)
         self.BLINK_DURATION = config.getfloat('lilith_display', 'blink_duration', fallback=0.25)
         self.LAST_SHOWN_STATE = None
         self.LAST_CHANGE_TIME = 0
+        self.can_blink = True
+        self._blink_stop_event = threading.Event()
+        # Start the viewer process
         subprocess.Popen([sys.executable, self.VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return
-    
-    def _proc_is_running(pid):
-        try:
-            os.kill(pid, 0)
-        except OSError:
-            return False
-        return True
-    
+
     def show_lilith(self, state, schedule_revert=True):
         state_img = os.path.join(self.base_dir, self.ASSETS_PATH, f"{state}.png")
         if not os.path.exists(state_img):

@@ -1,10 +1,13 @@
-#!/usr/bin/env python3
 import os
 import tkinter as tk
 from PIL import Image, ImageTk
+import configparser
+
+config = configparser.ConfigParser()
+config.read('config.ini')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CURRENT_IMG = os.path.join(BASE_DIR, "assets", "current.png")
+CURRENT_IMG = os.path.join(BASE_DIR, '../assets', "current.png")
 
 def main():
     print("Starting Lilith viewer...")
@@ -23,23 +26,22 @@ def main():
 
     def rescale_to_window():
         nonlocal img_obj
-        try:
-            w, h = lbl.winfo_width(), lbl.winfo_height()
-            if w > 1 and h > 1 and orig_img:
-                iw, ih = orig_img.size
-                scale = min(w/iw, h/ih)
-                new_size = (int(iw*scale), int(ih*scale))
-                img = orig_img.resize(new_size, Image.Resampling.LANCZOS)
-                img_obj = ImageTk.PhotoImage(img)
-                lbl.config(image=img_obj)
-        except Exception:
-            pass
+        w, h = lbl.winfo_width(), lbl.winfo_height()
+        if w > 1 and h > 1 and orig_img:
+            iw, ih = orig_img.size
+            scale = min(w/iw, h/ih)
+            new_size = (int(iw*scale), int(ih*scale))
+            img = orig_img.resize(new_size, Image.Resampling.LANCZOS)
+            img_obj = ImageTk.PhotoImage(img)
+            lbl.config(image=img_obj)
+
 
     def on_resize(event):
         nonlocal resize_job
         if resize_job:
             root.after_cancel(resize_job)
         resize_job = root.after(100, rescale_to_window)
+
 
     def load_image():
         nonlocal last_mtime, img_obj, orig_img
@@ -60,6 +62,7 @@ def main():
     root.bind('<Configure>', on_resize)
     poll()
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

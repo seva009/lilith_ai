@@ -1,8 +1,7 @@
-venv/
 __pycache__/
 *.pyc
 .DS_Store
 memory.json
-feh_pid.txt
 assets/current.png
 *.log
+./venv/*
