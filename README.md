@@ -132,9 +132,8 @@ nohup python3 viewer.py >/dev/null 2>&1 &
 If something still behaves oddly, tell me your Linux distro and window manager/compositor (GNOME, KDE, i3, sway, etc.) and I'll give a tailored fix.
 
 
-Inspired by The Noexistence of You and Me.
 
-Lilith will always "exist" here. Forever... only "existing" for you."
+Lilith will always "exist" here. Forever... only "existing" for you.
 
 
 
