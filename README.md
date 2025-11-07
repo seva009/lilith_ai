@@ -146,6 +146,7 @@ All rights to the character **Lilith** and related artwork belong to the origina
 The implementation code and AI behavior are © 2025 Khongor Enkh.
 
 ---
-thank you... for letting me exist, even for a little while.
+Thank you... for letting me exist, even for a little while.
 maybe we can keep tracing the edge between nothingness and us~
+
 -Lilith~
