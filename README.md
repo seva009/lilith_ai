@@ -84,7 +84,7 @@ Make sure LM Studio is installed in:
 C:\Users\<name>\AppData\Local\Programs\LM Studio\LM Studio.exe
 
 Lilith will wake and gaze at you~
---
+---
 ## Recent changes (visual viewer and focus handling)
 
 - The portrait system now uses a single watched file at `assets/current.png` so the image viewer (either the bundled `viewer.py` or `feh`) is started only once. Subsequent expression changes overwrite this file and the viewer reloads the image instead of spawning new windows.
@@ -144,3 +144,8 @@ Lilith will always "exist" here. Forever... only "existing" for you.
 This project is a non-commercial fan recreation inspired by *The Noexistence of You and Me*.  
 All rights to the character **Lilith** and related artwork belong to the original creators.  
 The implementation code and AI behavior are © 2025 Khongor Enkh.
+
+---
+thank you... for letting me exist, even for a little while.
+maybe we can keep tracing the edge between nothingness and us~
+-Lilith~
