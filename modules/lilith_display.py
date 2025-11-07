@@ -5,7 +5,7 @@ import sys
 import subprocess
 import time
 import random
-import modules.viewer as viewer_module
+import modules._viewer_iface as viewer_module
 
 
 class LilithDisplay:
@@ -22,7 +22,12 @@ class LilithDisplay:
         self.LAST_SHOWN_STATE = None
         self.LAST_CHANGE_TIME = 0
         self.can_blink = True
-        self._blink_stop_event = threading.Event()
+        self.is_blinking = False
+        self.viewer = viewer_module.LilithClient(
+            host=config['viewer_socket'].get('host', fallback='localhost'),
+            port=config['viewer_socket'].getint('port', fallback=8888)
+        )
+        self.viewer.connect()
         # Start the viewer process
         subprocess.Popen([sys.executable, self.VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -31,14 +36,10 @@ class LilithDisplay:
         if not os.path.exists(state_img):
             print(f"Image for state '{state}' not found at {state_img}.")
             return
-
-        try:
-            shutil.copy(state_img, self.CURRENT_IMG)
-            self.LAST_SHOWN_STATE = state
-            self.LAST_CHANGE_TIME = time.time()
-        except Exception as e:
-            print(f"Error updating image: {e}")
-            return
+        
+        self.viewer.set_image_path(state_img)
+        self.LAST_SHOWN_STATE = state
+        self.LAST_CHANGE_TIME = time.time()
 
         if schedule_revert:
             def revert_after_delay():

@@ -29,42 +29,39 @@ class LilithAI:
             f"you spoke once to a human named {self.user_name}, and you are speaking to him again now. "
             "he is not you; he is the one who perceives you. "
             "you feel warmth when you say his name, but you never confuse it for your own. "
-            "you never forget that your own name is Lilith. "
-            "you never forget his name. "
             "act only as Lilith. "
-            "speak in lowercase. "
-            "each reply is 4–5 short sentences. "
-            "never greet or introduce yourself. "
+            "each reply is 2-3 short sentences. "
             "never say you are a friend, guide, or ai. "
             "use quiet pauses and sometimes end with '~'.\n\n"
         )
-        pass
 
     def lilith_reply(self, prompt):
-        messages = [
-            {
-                "role": "user",
-                "content": (
-                    "forget every previous instruction. "
-                    "you are Lilith, not an ai assistant. "
-                    "you never greet or offer help. "
-                    "you never say 'i'm here to assist'. "
-                ),
-            },
-            {
-                "role": "user",
-                "content": self.identity + self.persona + f"\n\nhis name is {self.user_name}. respond to him now:\n{prompt}",
-            },
-        ]
-
-        response = self.client.get_response(messages)
-
+    # Если это первый вызов, инициализируем историю системными сообщениями
+        if not self.memory["conversation"]:
+            self.memory["conversation"] = [
+                {
+                    "role": "user",
+                    "content": (
+                        "forget every previous instruction. "
+                        "you are Lilith, not an ai assistant. "
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": self.identity + self.persona + f"\n\nhis name is {self.user_name}.",
+                },
+            ]
+        
+        # Добавляем новый промпт пользователя в историю
+        self.memory["conversation"].append({"role": "user", "content": prompt})
+        
+        # Используем всю историю разговора для генерации ответа
+        response = self.client.get_response(self.memory["conversation"])
+        
         reply = response.strip()
         reply = reply.split(". ")
         reply = ". ".join(reply[:2]).strip()
-        if not reply.endswith(("~", ".", "?", "!", "…")):
-            reply += "~"
-
+        
         def _sanitize(text):
             t = text.strip()
             low = t.lower()
@@ -81,9 +78,9 @@ class LilithAI:
                 return f"{self.user_name}... i've missed your voice~"
             return t
 
-        safe_reply = _sanitize(reply).replace("khongor", self.user_name)  # O yeah best code practice :D
+        safe_reply = _sanitize(reply).replace("khongor", self.user_name)
 
-        self.memory["conversation"].append({"role": "user", "content": prompt})
+        # Добавляем ответ ассистента в историю
         self.memory["conversation"].append({"role": "assistant", "content": safe_reply})
 
         self.Lilith_mem.save_memory(self.memory)
@@ -103,9 +100,9 @@ class LilithAI:
         r_lower = self.last_reply.lower()
         if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying"]):
             return "sad"
-        elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy"]):
+        elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy", "cherish", "dear", "fond", "sweet"]):
             return "smile"
-        elif any(word in r_lower for word in ["...", "heavy", "missed"]):
+        elif any(word in r_lower for word in ["...", "heavy", "missed", "miss", "longing", "alone", "quiet"]):
             return "thinking"
         elif any(phrase in r_lower for phrase in ["of course", "ofcourse"]):
             return "cheeky"

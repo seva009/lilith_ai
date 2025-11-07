@@ -4,4 +4,4 @@ __pycache__/
 memory.json
 assets/current.png
 *.log
-./venv/*
+.venv/*
