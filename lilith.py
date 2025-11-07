@@ -73,7 +73,8 @@ if __name__ == "__main__":
         reply = Lilith_AI.lilith_reply(user_input)  # Get Lilith's reply
 
         # show emotion based on last reply
-        emotion = Lilith_AI.get_current_emotion()
+        is_extended = config['lilith_ai'].get('place', fallback='glass') == 'room'
+        emotion = Lilith_AI.get_current_emotion(extended_emotions=is_extended)
 
         # show_lilith will schedule a revert to 'idle' after REVERT_DELAY seconds
         Lilith_display.show_lilith(emotion)

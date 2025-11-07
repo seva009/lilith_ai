@@ -23,6 +23,7 @@ class LilithDisplay:
         self.LAST_CHANGE_TIME = 0
         self.can_blink = True
         self.is_blinking = False
+        self.place = config.get('lilith_display', 'place', fallback='glass')
         self.viewer = viewer_module.LilithClient(
             host=config['viewer_socket'].get('host', fallback='localhost'),
             port=config['viewer_socket'].getint('port', fallback=8888)
@@ -32,11 +33,11 @@ class LilithDisplay:
         subprocess.Popen([sys.executable, self.VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def show_lilith(self, state, schedule_revert=True):
-        state_img = os.path.join(self.base_dir, self.ASSETS_PATH, f"{state}.png")
+        state_img = os.path.join(self.base_dir, self.ASSETS_PATH, self.place ,f"{state}.png")
         if not os.path.exists(state_img):
             print(f"Image for state '{state}' not found at {state_img}.")
             return
-        
+
         self.viewer.set_image_path(state_img)
         self.LAST_SHOWN_STATE = state
         self.LAST_CHANGE_TIME = time.time()

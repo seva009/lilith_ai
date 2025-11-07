@@ -36,7 +36,6 @@ class LilithAI:
         )
 
     def lilith_reply(self, prompt):
-    # Если это первый вызов, инициализируем историю системными сообщениями
         if not self.memory["conversation"]:
             self.memory["conversation"] = [
                 {
@@ -52,10 +51,8 @@ class LilithAI:
                 },
             ]
         
-        # Добавляем новый промпт пользователя в историю
         self.memory["conversation"].append({"role": "user", "content": prompt})
         
-        # Используем всю историю разговора для генерации ответа
         response = self.client.get_response(self.memory["conversation"])
         
         reply = response.strip()
@@ -80,7 +77,6 @@ class LilithAI:
 
         safe_reply = _sanitize(reply).replace("khongor", self.user_name)
 
-        # Добавляем ответ ассистента в историю
         self.memory["conversation"].append({"role": "assistant", "content": safe_reply})
 
         self.Lilith_mem.save_memory(self.memory)
@@ -96,15 +92,36 @@ class LilithAI:
     def has_user_name(self):
         return self.memory["meta"].get("user_name_set", False)
     
-    def get_current_emotion(self):
+    def get_current_emotion(self, extended_emotions=False):
         r_lower = self.last_reply.lower()
-        if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying"]):
-            return "sad"
-        elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy", "cherish", "dear", "fond", "sweet"]):
-            return "smile"
-        elif any(word in r_lower for word in ["...", "heavy", "missed", "miss", "longing", "alone", "quiet"]):
-            return "thinking"
-        elif any(phrase in r_lower for phrase in ["of course", "ofcourse"]):
-            return "cheeky"
+        
+        if extended_emotions:
+            if any(word in r_lower for word in ["confused", "not sure", "don't know", "dunno", "what?", "huh?", "what do you mean", "i don't understand", "confusion", "puzzled"]):
+                return "confused"
+            elif any(word in r_lower for word in ["happy", "happiness", "joy", "great", "fantastic", "awesome", "excited", "thrilled", "overjoyed", "ecstatic", "delighted", "wonderful"]):
+                return "happy"
+            elif any(word in r_lower for word in ["playful", "play", "joking", "kidding", "teasing", "funny", "laugh", "lol", "haha", "hehe", "joke", "wit", "humor"]):
+                return "playful"
+            elif any(word in r_lower for word in ["sad", "sadness", "unhappy", "depressed", "miserable", "sorrow", "grief", "heartbroken", "down", "blue", "melancholy", "gloomy"]):
+                return "sad"
+            elif any(word in r_lower for word in ["sleep", "tired", "exhausted", "bed", "nap", "drowsy", "yawn", "fatigue", "weary", "rest", "zzz", "asleep"]):
+                return "sleep"
+            elif any(word in r_lower for word in ["smile", "smiling", "grin", "smiled", "grinning", "beaming", "bright", " cheerful"]):
+                return "smile"
+            elif any(word in r_lower for word in ["thinking happy", "positive thought", "good idea", "bright idea", "optimistic", "hopeful", "thinking positively"]):
+                return "thinking_happy"
+            elif any(word in r_lower for word in ["thinking sad", "negative thought", "bad idea", "worried thought", "pessimistic", "concerned", "thinking negatively"]):
+                return "thinking_sad"
+            else:
+                return "talking"
         else:
-            return "talking"
+            if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying", "apologize", "regret", "mourn", "grieve", "heartache", "disappointed"]):
+                return "sad"
+            elif any(word in r_lower for word in ["love", "warm", "smile", "happy", "glad", "joy", "cherish", "dear", "fond", "sweet", "adore", "bliss", "content", "pleased"]):
+                return "smile"
+            elif any(word in r_lower for word in ["...", "heavy", "missed", "miss", "longing", "alone", "quiet", "ponder", "contemplate", "reflect", "consider", "meditate", "ruminate"]):
+                return "thinking"
+            elif any(phrase in r_lower for phrase in ["of course", "ofcourse", "certainly", "definitely", "absolutely", "surely", "without doubt"]):
+                return "cheeky"
+            else:
+                return "talking"
