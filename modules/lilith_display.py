@@ -35,9 +35,13 @@ class LilithDisplay:
     def show_lilith(self, state, schedule_revert=True):
         state_img = os.path.join(self.base_dir, self.ASSETS_PATH, self.place ,f"{state}.png")
         if not os.path.exists(state_img):
-            print(f"Image for state '{state}' not found at {state_img}.")
+            raise Exception(f"Image for state '{state}' not found at {state_img}.")
             return
 
+        if self.place == 'glass' and state == 'smile':
+            self.can_blink = False # prevent blinking during smile state
+        else:
+            self.can_blink = True
         self.viewer.set_image_path(state_img)
         self.LAST_SHOWN_STATE = state
         self.LAST_CHANGE_TIME = time.time()
@@ -52,8 +56,9 @@ class LilithDisplay:
 
     def set_blinking(self, enable):
         if enable:
+            self.is_blinking = True
             def blink_loop():
-                while True:
+                while self.is_blinking and self.can_blink:
                     interval = random.uniform(self.BLINK_MIN, self.BLINK_MAX)
                     time.sleep(interval)
                     prev_state = self.LAST_SHOWN_STATE
@@ -63,3 +68,5 @@ class LilithDisplay:
                         self.show_lilith(prev_state, schedule_revert=False)
 
             threading.Thread(target=blink_loop, daemon=True).start()
+        else:
+            self.is_blinking = False

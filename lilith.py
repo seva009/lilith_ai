@@ -15,7 +15,7 @@ DEFAULT_USER_NAME = ""
 Lilith_display = lilith_display.LilithDisplay(BASE_DIR, config)
 Lilith_AI = lilith_ai.LilithAI(Lilith_display, config, BASE_DIR, DEFAULT_USER_NAME)
 
-is_extended = config['lilith_ai'].get('place', fallback='glass') == 'room'
+is_extended = config['lilith_display'].get('place', fallback='glass') == 'room'
 if is_extended:
     Lilith_display.show_lilith("thinking_happy")
 else:
@@ -72,7 +72,11 @@ if __name__ == "__main__":
         spinning = True
         t = threading.Thread(target=spinner)
         t.start()
-        Lilith_display.show_lilith("thinking", schedule_revert=False)
+
+        if is_extended:
+            Lilith_display.show_lilith("thinking_happy")
+        else:
+            Lilith_display.show_lilith("thinking")
 
         reply = Lilith_AI.lilith_reply(user_input)  # Get Lilith's reply
 
