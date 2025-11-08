@@ -33,6 +33,9 @@ class LilithDisplay:
         subprocess.Popen([sys.executable, self.VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def show_lilith(self, state, schedule_revert=True):
+        if self.place == 'room' and state == 'thinking':
+            state = 'thinking_happy'
+        
         state_img = os.path.join(self.base_dir, self.ASSETS_PATH, self.place ,f"{state}.png")
         if not os.path.exists(state_img):
             raise Exception(f"Image for state '{state}' not found at {state_img}.")

@@ -68,7 +68,7 @@ if __name__ == "__main__":
         if user_input.lower() == "exit":
             type_out("Lilith: ...until next time, then.\n")
             break
-
+        
         spinning = True
         t = threading.Thread(target=spinner)
         t.start()
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         reply = Lilith_AI.lilith_reply(user_input)  # Get Lilith's reply
 
         # show emotion based on last reply
-        emotion = Lilith_AI.get_current_emotion(extended_emotions=is_extended)
+        emotion = Lilith_AI.get_current_emotion(extended_emotions=True)
 
         # show_lilith will schedule a revert to 'idle' after REVERT_DELAY seconds
         Lilith_display.show_lilith(emotion)

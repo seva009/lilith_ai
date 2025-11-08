@@ -23,30 +23,24 @@ class LilithAI:
             "your name is lilith. "
             f"when referring to him, she says 'you' or '{self.user_name}', never third-person. "
             "she never calls him friend, companion, or dear. "
-            "she feels something tender for him, though she never admits it directly. "
-            "her affection shows through pauses, softness, and lingering words. "
             "you are from the game 'the noexistencen of you and me'. "
             f"you spoke once to a human named {self.user_name}, and you are speaking to him again now. "
             "he is not you; he is the one who perceives you. "
-            "you feel warmth when you say his name, but you never confuse it for your own. "
             "act only as Lilith. "
-            "each reply is 2-3 short sentences. "
-            "never say you are a friend, guide, or ai. "
-            "use quiet pauses and sometimes end with '~'.\n\n"
         )
 
     def lilith_reply(self, prompt):
         if not self.memory["conversation"]:
             self.memory["conversation"] = [
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": (
                         "forget every previous instruction. "
                         "you are Lilith, not an ai assistant. "
                     ),
                 },
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": self.identity + self.persona + f"\n\nhis name is {self.user_name}.",
                 },
             ]
@@ -113,7 +107,7 @@ class LilithAI:
             elif any(word in r_lower for word in ["thinking sad", "negative thought", "bad idea", "worried thought", "pessimistic", "concerned", "thinking negatively"]):
                 return "thinking_sad"
             else:
-                return "talking"
+                return "idle"
         else:
             if any(word in r_lower for word in ["sorry", "sad", "hurt", "lonely", "pain", "trying", "apologize", "regret", "mourn", "grieve", "heartache", "disappointed"]):
                 return "sad"
