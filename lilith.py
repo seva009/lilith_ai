@@ -6,24 +6,49 @@ import threading
 import itertools
 import sys
 import time
+import logging
+import argparse
 
-config = configparser.ConfigParser()
+logging.basicConfig(
+    level=logging.INFO,
+    filename="app.log",
+    filemode="a",
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+
+### --------------------------------Argument parser for config editing
+parser = argparse.ArgumentParser()
+sub = parser.add_subparsers(dest="cmd")
+sub.add_parser("edit")
+sub.add_parser("conv_edit")
+args = parser.parse_args()
+if args.cmd == "edit":
+    from modules import config_edit
+    config_edit.run_config_editor()
+    sys.exit(0)
+elif args.cmd == "conv_edit":
+    from modules import conv_mgmt
+    config = configparser.ConfigParser()  # Create a config parser
+    config.read('config.ini')
+    conv_mgmt.run_conversation_manager(lilith_ai.LilithAI(None, config, NO_AI=True))
+    sys.exit(0)
+### --------------------------------End argument parser--------------------------------
+
+config = configparser.ConfigParser()  # Create a config parser
 config.read('config.ini')
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_USER_NAME = ""
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Base directory of the application
 
-Lilith_display = lilith_display.LilithDisplay(BASE_DIR, config)
-Lilith_AI = lilith_ai.LilithAI(Lilith_display, config, BASE_DIR, DEFAULT_USER_NAME)
+Lilith_display = lilith_display.LilithDisplay(BASE_DIR, config)  # Initialize LilithDisplay
+Lilith_AI = lilith_ai.LilithAI(Lilith_display, config, BASE_DIR)  # Initialize LilithAI
 
-is_extended = config['lilith_display'].get('place', fallback='glass') == 'room'
+is_extended = config['lilith_display'].get('place') == 'room'
 if is_extended:
     Lilith_display.show_lilith("thinking_happy")
 else:
     Lilith_display.show_lilith("thinking")
 
-
-spinning = False
+spinning = False # Spinner control variable
 
 
 def spinner():

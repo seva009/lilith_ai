@@ -1,11 +1,16 @@
 import importlib
 import configparser
+import logging
+
+logger = logging.getLogger(__name__)
 
 config = configparser.ConfigParser()
 config.read('config.ini')
 
 _iface = None
 iface_type = config['server']['server_ai']
+
+logger.info(f"Loading AI interface: {iface_type}")
 
 if iface_type == 'ollama':
     try:

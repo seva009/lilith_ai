@@ -1,6 +1,8 @@
 from llama_cpp import Llama
 import configparser
+import logging
 
+logger = logging.getLogger(__name__)
 
 class AIInterface_Llama:
     def __init__(
@@ -16,6 +18,7 @@ class AIInterface_Llama:
         config.read("config.ini")
 
         self.model_path = config.get("ai_config", "model_path") + config.get("ai_config", "local_model")
+        logger.info(f"Initializing Llama model from path: {self.model_path} with n_ctx={n_ctx}, n_threads={n_threads}, n_batch={n_batch}")
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_history_messages = config.getint("ai_config", "max_history_messages", fallback=40)
@@ -28,7 +31,10 @@ class AIInterface_Llama:
             verbose=False,
         )
 
+
+
     def _trim_messages(self, messages: list) -> list:
+        logger.info(f"Trimming messages to the last {self.max_history_messages} messages.")
         system = [m for m in messages if m["role"] == "system"]
         others = [m for m in messages if m["role"] != "system"]
 

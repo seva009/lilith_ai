@@ -1,7 +1,7 @@
 import re
 from transformers import MarianMTModel, MarianTokenizer
 
-class OfflineRoleplayTranslator:
+class Translator:
     def __init__(self):
         self.en_to_ru_model_name = 'Helsinki-NLP/opus-mt-en-ru'
         self.ru_to_en_model_name = 'Helsinki-NLP/opus-mt-ru-en'
@@ -62,10 +62,10 @@ class OfflineRoleplayTranslator:
         return self.translate_text(text, direction='en-ru')
 
 
-# Пример использования
-translator = OfflineRoleplayTranslator()
-user_text = "Привет, как дела?"
-ai_text = "*smiles warmly* I'm fine, thank you! How about you? *waves*"
+if __name__ == "__main__":
+    translator = Translator()
+    user_text = "Привет, как дела?"
+    ai_text = "*smiles warmly* I'm fine, thank you! How about you? *waves*"
 
-print("User → AI:", translator.user_to_ai(user_text))
-print("AI → User:", translator.ai_to_user(ai_text))
+    print("User → AI:", translator.user_to_ai(user_text))
+    print("AI → User:", translator.ai_to_user(ai_text))

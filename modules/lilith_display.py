@@ -6,7 +6,9 @@ import subprocess
 import time
 import random
 import modules._viewer_iface as viewer_module
+import logging
 
+logger = logging.getLogger(__name__)
 
 class LilithDisplay:
     def __init__(self, base_dir, config):
@@ -31,6 +33,7 @@ class LilithDisplay:
         self.viewer.connect()
         # Start the viewer process
         subprocess.Popen([sys.executable, self.VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        logger.info("LilithDisplay initialized and viewer process started.")
 
     def show_lilith(self, state, schedule_revert=True):
         if self.place == 'room' and state == 'thinking':
