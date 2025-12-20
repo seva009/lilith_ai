@@ -4,7 +4,7 @@ import modules._iface as _iface
 class LilithAI:
     def __init__(self, Lilith_display, config, BASE_DIR="", DEFAULT_USER_NAME=""):
         self.client = _iface.AIInterface(
-            model=config["ai_config"].get('ai_model', fallback='mistral-7b-instruct-v0.3'),
+            model=config["ai_config"].get('ai_model'),
             temperature=config["ai_config"].getfloat('temperature', fallback=0.85),
             max_tokens=config["ai_config"].getint('max_tokens', fallback=120),
             base_url=config['server']['base_url'],
@@ -18,30 +18,13 @@ class LilithAI:
         self.memory = self.Lilith_mem.load_memory()
         self.user_name = self.Lilith_mem.get_user_name(self.memory)
         self.last_reply = ""
-        self.identity = (
-            "this is a roleplay between two beings. "
-            "your name is lilith. "
-            f"when referring to him, she says 'you' or '{self.user_name}', never third-person. "
-            "she never calls him friend, companion, or dear. "
-            "you are from the game 'the noexistencen of you and me'. "
-            f"you spoke once to a human named {self.user_name}, and you are speaking to him again now. "
-            "he is not you; he is the one who perceives you. "
-            "act only as Lilith. "
-        )
 
     def lilith_reply(self, prompt):
         if not self.memory["conversation"]:
             self.memory["conversation"] = [
                 {
                     "role": "system",
-                    "content": (
-                        "forget every previous instruction. "
-                        "you are Lilith, not an ai assistant. "
-                    ),
-                },
-                {
-                    "role": "system",
-                    "content": self.identity + self.persona + f"\n\nhis name is {self.user_name}.",
+                    "content":  self.persona + f"\n\nhis name is {self.user_name}.",
                 },
             ]
         
@@ -69,7 +52,7 @@ class LilithAI:
                 return f"{self.user_name}... i've missed your voice~"
             return t
 
-        safe_reply = _sanitize(reply).replace("khongor", self.user_name)
+        safe_reply = _sanitize(reply)
 
         self.memory["conversation"].append({"role": "assistant", "content": safe_reply})
 

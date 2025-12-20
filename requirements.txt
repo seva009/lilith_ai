@@ -4,3 +4,6 @@ openai>=1.0
 gunicorn>=21.2
 pillow
 ollama
+transformers
+sentencepiece
+sacremoses

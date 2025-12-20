@@ -2,7 +2,7 @@ from ollama import chat
 from ollama import ChatResponse
 
 class AIInterface_Ollama:
-    def __init__(self, model:str, temperature:float = 0.7, max_tokens:int =150, base_url:str=str(), api_key:str=str()):
+    def __init__(self, model:str, temperature:float = 0.7, max_tokens:int =150, **kwargs):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens

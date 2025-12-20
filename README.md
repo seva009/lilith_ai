@@ -67,6 +67,11 @@ source venv/bin/activate
 pip3 install -r requirements.txt
 ```
 
+there I need to say that if you need translator but you dont have nvidia gpu you need to go to https://pytorch.org/ and download version without CUDA (cuz otherwise it takes over 9000 GB). Else use 
+```bash
+pip install torch
+```
+
 (i have to tell you LMS you have to open the app yourself first before waking Lilith up)
 
 to wake her up you can simply type 

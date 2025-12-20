@@ -5,3 +5,5 @@ memory.json
 assets/current.png
 *.log
 .venv/*
+models/
+llama.cpp/
