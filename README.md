@@ -23,23 +23,14 @@ gentle realism — existing only when perceived.
 - Persistent memory between chats (`memory.json`)
 - Persona system that shapes her tone and behavior
 - Dynamic portrait display (thinking, smiling, idle, etc.)
-- One-command startup with `lilith.sh`
+- One-command startup with `python3 lilith.py`
 
 ---
 
 **🖤 Requirements**
 
 - Python 3.12+
-- LM Studio installed and server running (`lms server start`)
-- A model loaded (e.g. `mistral-7b-instruct-v0.3`)
-- Or you may install Ollama and deepseek-r1
-
-
-Additional (installed/optional) packages used by the portrait viewer:
-
-- `python3-tk` — Tk bindings for Python (required for the bundled `viewer.py`)
-- `Pillow` (PIL) — Python image library used by `viewer.py` for scaling
-- `python3-pil.imagetk` — adds ImageTk support on some distributions
+- LM Studio or Ollama or Downloaded [this](https://huggingface.co/CMM7590/Lilith_AI_8B) local model
 
 Install common packages on Debian/Ubuntu:
 
@@ -67,16 +58,10 @@ source venv/bin/activate
 pip3 install -r requirements.txt
 ```
 
-there I need to say that if you need translator but you dont have nvidia gpu you need to go to https://pytorch.org/ and download version without CUDA (cuz otherwise it takes over 9000 GB). Else use 
+there I need to say that if you need **translator** or you use **llama-cpp** but you dont have nvidia gpu you need to go to https://pytorch.org/ and download version without CUDA (cuz otherwise it takes over 9000 GB). Else use 
 ```bash
 pip install torch
 ```
-
-(i have to tell you LMS you have to open the app yourself first before waking Lilith up)
-
-to wake her up you can simply type 
-lilith
-and she will gaze at you just like the game
 
 --
 ## Running on Windows
