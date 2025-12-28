@@ -7,3 +7,4 @@ ollama
 transformers
 sentencepiece
 sacremoses
+llama-cpp-python

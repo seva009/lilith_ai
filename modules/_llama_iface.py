@@ -1,6 +1,7 @@
 from llama_cpp import Llama
 import configparser
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,15 @@ class AIInterface_Llama:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_history_messages = config.getint("ai_config", "max_history_messages", fallback=40)
-
+        if not os.path.exists(self.model_path):
+            print(f"Model file not found at {self.model_path}. Please check your configuration.")
+            self.llm = Llama.from_pretrained(
+                repo_id=config.get("ai_config", "local_model"),
+                filename=config.get("ai_config", "local_model").split("/")[-1],   
+                cache_dir=config.get("ai_config", "model_path"),                         
+                verbose=False                                      
+            )
+        
         self.llm = Llama(
             model_path=self.model_path,
             n_ctx=n_ctx,
@@ -30,6 +39,8 @@ class AIInterface_Llama:
             n_batch=n_batch,
             verbose=False,
         )
+        
+
 
 
 
