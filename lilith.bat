@@ -2,15 +2,15 @@
 title Lilith 🖤
 echo 🌙 Waking up Lilith's mind...
 
-REM Check if LM Studio server is running
-curl -s http://localhost:1234/v1/models >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Starting LM Studio...
-    start "" "%LOCALAPPDATA%\Programs\LM Studio\LM Studio.exe" --enable-server
-    timeout /t 10 /nobreak >nul
-) else (
-    echo LM Studio already running.
-)
+@REM REM Check if LM Studio server is running
+@REM curl -s http://localhost:1234/v1/models >nul 2>&1
+@REM if %errorlevel% neq 0 (
+@REM     echo Starting LM Studio...
+@REM     start "" "%LOCALAPPDATA%\Programs\LM Studio\LM Studio.exe" --enable-server
+@REM     timeout /t 10 /nobreak >nul
+@REM ) else (
+@REM     echo LM Studio already running.
+@REM )
 
 REM Activate virtual environment
 if exist venv\Scripts\activate (

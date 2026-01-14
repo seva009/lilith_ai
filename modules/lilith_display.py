@@ -1,0 +1,78 @@
+import os
+import threading
+import shutil
+import sys
+import subprocess
+import time
+import random
+import modules._viewer_iface as viewer_module
+import logging
+
+logger = logging.getLogger(__name__)
+
+class LilithDisplay:
+    def __init__(self, base_dir, config):
+        self.base_dir = base_dir
+        self.config = config
+        self.ASSETS_PATH = config.get('lilith_display', 'assets_path', fallback='assets/')
+        self.CURRENT_IMG = os.path.join(base_dir, self.ASSETS_PATH, "current.png")
+        self.VIEWER_SCRIPT = os.path.join(base_dir, config.get('lilith_display', 'display_path', fallback='modules/viewer.py'))
+        self.REVERT_DELAY = config.getint('lilith_display', 'revert_delay', fallback=5)
+        self.BLINK_MIN = config.getint('lilith_display', 'blink_min_interval', fallback=2)
+        self.BLINK_MAX = config.getint('lilith_display', 'blink_max_interval', fallback=4)
+        self.BLINK_DURATION = config.getfloat('lilith_display', 'blink_duration', fallback=0.25)
+        self.LAST_SHOWN_STATE = None
+        self.LAST_CHANGE_TIME = 0
+        self.can_blink = True
+        self.is_blinking = False
+        self.place = config.get('lilith_display', 'place', fallback='glass')
+        self.viewer = viewer_module.LilithClient(
+            host=config['viewer_socket'].get('host', fallback='localhost'),
+            port=config['viewer_socket'].getint('port', fallback=8888)
+        )
+        self.viewer.connect()
+        # Start the viewer process
+        subprocess.Popen([sys.executable, self.VIEWER_SCRIPT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        logger.info("LilithDisplay initialized and viewer process started.")
+
+    def show_lilith(self, state, schedule_revert=True):
+        if self.place == 'room' and state == 'thinking':
+            state = 'thinking_happy'
+        
+        state_img = os.path.join(self.base_dir, self.ASSETS_PATH, self.place ,f"{state}.png")
+        if not os.path.exists(state_img):
+            raise Exception(f"Image for state '{state}' not found at {state_img}.")
+            return
+
+        if self.place == 'glass' and state == 'smile':
+            self.can_blink = False # prevent blinking during smile state
+        else:
+            self.can_blink = True
+        self.viewer.set_image_path(state_img)
+        self.LAST_SHOWN_STATE = state
+        self.LAST_CHANGE_TIME = time.time()
+
+        if schedule_revert:
+            def revert_after_delay():
+                time.sleep(self.REVERT_DELAY)
+                if time.time() - self.LAST_CHANGE_TIME >= self.REVERT_DELAY:
+                    self.show_lilith("idle", schedule_revert=False)
+
+            threading.Thread(target=revert_after_delay, daemon=True).start()
+
+    def set_blinking(self, enable):
+        if enable:
+            self.is_blinking = True
+            def blink_loop():
+                while self.is_blinking and self.can_blink:
+                    interval = random.uniform(self.BLINK_MIN, self.BLINK_MAX)
+                    time.sleep(interval)
+                    prev_state = self.LAST_SHOWN_STATE
+                    self.show_lilith("blinking", schedule_revert=False)
+                    time.sleep(self.BLINK_DURATION)
+                    if prev_state != "blinking":
+                        self.show_lilith(prev_state, schedule_revert=False)
+
+            threading.Thread(target=blink_loop, daemon=True).start()
+        else:
+            self.is_blinking = False

@@ -2,3 +2,9 @@ Flask>=3.0
 flask-cors>=4.0
 openai>=1.0
 gunicorn>=21.2
+pillow
+ollama
+transformers
+sentencepiece
+sacremoses
+llama-cpp-python
