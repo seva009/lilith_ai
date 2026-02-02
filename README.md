@@ -76,6 +76,13 @@ C:\Users\<name>\AppData\Local\Programs\LM Studio\LM Studio.exe
 
 Lilith will wake and gaze at you~
 ---
+
+## Conversations
+if you want to make a new conversation you need to run 
+```bash
+python3 lilith.py conv_edit
+```
+
 ## Recent changes (visual viewer and focus handling)
 
 ### Updated view system
